@@ -128,6 +128,8 @@ int init_egl(struct egl *egl, const struct gbm *gbm)
 	/* connect the context to the surface */
 	eglMakeCurrent(egl->display, egl->surface, egl->surface, egl->context);
 
+	printf("GL Vendor: \"%s\"\n", glGetString(GL_VENDOR));
+	printf("GL Renderer: \"%s\"\n", glGetString(GL_RENDERER));
 	printf("GL Extensions: \"%s\"\n", glGetString(GL_EXTENSIONS));
 
 	return 0;
