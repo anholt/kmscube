@@ -69,9 +69,10 @@ struct drm {
 struct drm_fb {
 	struct gbm_bo *bo;
 	uint32_t fb_id;
+	int display_fd;
 };
 
-struct drm_fb * drm_fb_get_from_bo(struct gbm_bo *bo);
+struct drm_fb * drm_fb_get_from_bo(int display_fd, struct gbm_bo *bo);
 
 int init_drm(struct drm *drm, const char *device);
 const struct drm * init_drm_legacy(const char *device);

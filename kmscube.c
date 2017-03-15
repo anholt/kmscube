@@ -27,6 +27,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <getopt.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #include "common.h"
 #include "drm-common.h"
@@ -38,22 +40,24 @@ static const struct egl *egl;
 static const struct gbm *gbm;
 static const struct drm *drm;
 
-static const char *shortopts = "AD:M:";
+static const char *shortopts = "AD:G:M:";
 
 static const struct option longopts[] = {
 	{"atomic", no_argument,       0, 'M'},
 	{"device", required_argument, 0, 'D'},
+	{"gpu", required_argument, 0, 'G'},
 	{"mode",   required_argument, 0, 'M'},
 	{0, 0, 0, 0}
 };
 
 static void usage(const char *name)
 {
-	printf("Usage: %s [-ADM]\n"
+	printf("Usage: %s [-ADGM]\n"
 			"\n"
 			"options:\n"
 			"    -A, --atomic             use atomic modesetting and fencing\n"
 			"    -D, --device=DEVICE      use the given device\n"
+			"    -G, --gpu=DEVICE         use the given device for 3D\n"
 			"    -M, --mode=MODE          specify mode, one of:\n"
 			"        smooth    -  smooth shaded cube (default)\n"
 			"        rgba      -  rgba textured cube\n"
@@ -65,9 +69,11 @@ static void usage(const char *name)
 int main(int argc, char *argv[])
 {
 	const char *device = "/dev/dri/card0";
+	const char *gpu = NULL;
 	enum mode mode = SMOOTH;
 	int atomic = 0;
 	int opt;
+	int gpu_fd;
 
 	while ((opt = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1) {
 		switch (opt) {
@@ -76,6 +82,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'D':
 			device = optarg;
+			break;
+		case 'G':
+			gpu = optarg;
 			break;
 		case 'M':
 			if (strcmp(optarg, "smooth") == 0) {
@@ -107,7 +116,23 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	gbm = init_gbm(drm->fd, drm->mode->hdisplay, drm->mode->vdisplay);
+	/* If a GPU was specified, open it and use that for EGL
+	 * rendering.  If not, do EGL on the same display as the
+	 * --device argument.
+	 */
+	if (gpu) {
+		gpu_fd = open(gpu, O_RDWR, 0);
+		if (gpu_fd == -1) {
+			printf("Failed to open GPU device \"%s\": %s\n",
+			       gpu, strerror(errno));
+			return -1;
+		}
+	} else {
+		gpu_fd = drm->fd;
+	}
+
+	gbm = init_gbm(drm->fd, gpu_fd,
+		       drm->mode->hdisplay, drm->mode->vdisplay);
 	if (!gbm) {
 		printf("failed to initialize GBM\n");
 		return -1;

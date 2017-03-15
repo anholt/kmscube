@@ -31,9 +31,9 @@
 
 static struct gbm gbm;
 
-const struct gbm * init_gbm(int drm_fd, int w, int h)
+const struct gbm * init_gbm(int display_fd, int gpu_fd, int w, int h)
 {
-	gbm.dev = gbm_create_device(drm_fd);
+	gbm.dev = gbm_create_device(gpu_fd);
 
 	gbm.surface = gbm_surface_create(gbm.dev, w, h,
 			GBM_FORMAT_XRGB8888,
@@ -45,6 +45,7 @@ const struct gbm * init_gbm(int drm_fd, int w, int h)
 
 	gbm.width = w;
 	gbm.height = h;
+	gbm.display_fd = display_fd;
 
 	return &gbm;
 }

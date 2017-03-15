@@ -186,7 +186,7 @@ static int atomic_run(const struct gbm *gbm, const struct egl *egl)
 
 	eglSwapBuffers(egl->display, egl->surface);
 	bo = gbm_surface_lock_front_buffer(gbm->surface);
-	fb = drm_fb_get_from_bo(bo);
+	fb = drm_fb_get_from_bo(gbm->display_fd, bo);
 
 	drm.kms_in_fence_fd = -1;
 
@@ -234,7 +234,7 @@ static int atomic_run(const struct gbm *gbm, const struct egl *egl)
 		assert(drm.kms_in_fence_fd != -1);
 
 		next_bo = gbm_surface_lock_front_buffer(gbm->surface);
-		fb = drm_fb_get_from_bo(next_bo);
+		fb = drm_fb_get_from_bo(gbm->display_fd, next_bo);
 
 		/*
 		 * Here you could also update drm plane layers if you want

@@ -53,9 +53,10 @@ struct gbm {
 	struct gbm_device *dev;
 	struct gbm_surface *surface;
 	int width, height;
+	int display_fd;
 };
 
-const struct gbm * init_gbm(int drm_fd, int w, int h);
+const struct gbm * init_gbm(int display_fd, int gpu_fd, int w, int h);
 
 
 struct egl {

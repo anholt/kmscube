@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "common.h"
 #include "drm-common.h"
@@ -33,16 +34,17 @@
 static void
 drm_fb_destroy_callback(struct gbm_bo *bo, void *data)
 {
-	int drm_fd = gbm_device_get_fd(gbm_bo_get_device(bo));
 	struct drm_fb *fb = data;
 
+	(void)bo;
+
 	if (fb->fb_id)
-		drmModeRmFB(drm_fd, fb->fb_id);
+		drmModeRmFB(fb->display_fd, fb->fb_id);
 
 	free(fb);
 }
 
-struct drm_fb * drm_fb_get_from_bo(struct gbm_bo *bo)
+struct drm_fb * drm_fb_get_from_bo(int display_fd, struct gbm_bo *bo)
 {
 	int drm_fd = gbm_device_get_fd(gbm_bo_get_device(bo));
 	struct drm_fb *fb = gbm_bo_get_user_data(bo);
@@ -54,13 +56,31 @@ struct drm_fb * drm_fb_get_from_bo(struct gbm_bo *bo)
 
 	fb = calloc(1, sizeof *fb);
 	fb->bo = bo;
+	fb->display_fd = display_fd;
 
 	width = gbm_bo_get_width(bo);
 	height = gbm_bo_get_height(bo);
 	stride = gbm_bo_get_stride(bo);
-	handle = gbm_bo_get_handle(bo).u32;
 
-	ret = drmModeAddFB(drm_fd, width, height, 24, 32, stride, handle, &fb->fb_id);
+	if (drm_fd != display_fd) {
+		int prime_fd = gbm_bo_get_fd(bo);
+		int ret;
+
+		ret = drmPrimeFDToHandle(display_fd, prime_fd, &handle);
+		if (ret) {
+			fprintf(stderr,
+				"Failed to import prime fd to KMS: %s\n",
+				strerror(errno));
+			free(fb);
+			return NULL;
+		}
+
+		close(prime_fd);
+	} else {
+		handle = gbm_bo_get_handle(bo).u32;
+	}
+
+	ret = drmModeAddFB(display_fd, width, height, 24, 32, stride, handle, &fb->fb_id);
 	if (ret) {
 		printf("failed to create fb: %s\n", strerror(errno));
 		free(fb);

@@ -54,14 +54,14 @@ static int legacy_run(const struct gbm *gbm, const struct egl *egl)
 
 	FD_ZERO(&fds);
 	FD_SET(0, &fds);
-	FD_SET(drm.fd, &fds);
+	FD_SET(gbm->display_fd, &fds);
 
 	eglSwapBuffers(egl->display, egl->surface);
 	bo = gbm_surface_lock_front_buffer(gbm->surface);
-	fb = drm_fb_get_from_bo(bo);
+	fb = drm_fb_get_from_bo(gbm->display_fd, bo);
 
 	/* set mode: */
-	ret = drmModeSetCrtc(drm.fd, drm.crtc_id, fb->fb_id, 0, 0,
+	ret = drmModeSetCrtc(gbm->display_fd, drm.crtc_id, fb->fb_id, 0, 0,
 			&drm.connector_id, 1, drm.mode);
 	if (ret) {
 		printf("failed to set mode: %s\n", strerror(errno));
@@ -76,14 +76,14 @@ static int legacy_run(const struct gbm *gbm, const struct egl *egl)
 
 		eglSwapBuffers(egl->display, egl->surface);
 		next_bo = gbm_surface_lock_front_buffer(gbm->surface);
-		fb = drm_fb_get_from_bo(next_bo);
+		fb = drm_fb_get_from_bo(gbm->display_fd, next_bo);
 
 		/*
 		 * Here you could also update drm plane layers if you want
 		 * hw composition
 		 */
 
-		ret = drmModePageFlip(drm.fd, drm.crtc_id, fb->fb_id,
+		ret = drmModePageFlip(gbm->display_fd, drm.crtc_id, fb->fb_id,
 				DRM_MODE_PAGE_FLIP_EVENT, &waiting_for_flip);
 		if (ret) {
 			printf("failed to queue page flip: %s\n", strerror(errno));
@@ -91,7 +91,7 @@ static int legacy_run(const struct gbm *gbm, const struct egl *egl)
 		}
 
 		while (waiting_for_flip) {
-			ret = select(drm.fd + 1, &fds, NULL, NULL, NULL);
+			ret = select(gbm->display_fd + 1, &fds, NULL, NULL, NULL);
 			if (ret < 0) {
 				printf("select err: %s\n", strerror(errno));
 				return ret;
@@ -102,7 +102,7 @@ static int legacy_run(const struct gbm *gbm, const struct egl *egl)
 				printf("user interrupted!\n");
 				break;
 			}
-			drmHandleEvent(drm.fd, &evctx);
+			drmHandleEvent(gbm->display_fd, &evctx);
 		}
 
 		/* release last buffer to render on again: */
